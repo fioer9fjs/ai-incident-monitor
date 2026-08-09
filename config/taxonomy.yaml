@@ -1,0 +1,174 @@
+# taxonomy.yaml v3.0
+# Integratives 3-Ebenen-Kernmodell für AI Incidents
+# Regulatorische Frameworks als abgeleitete Sichten, nicht als Kategorien
+# Sprache: Englisch
+
+definition:
+  en: >
+    AI Incident is an alleged or confirmed event, circumstance, or series of 
+    events in which the development, deployment, use, malfunction, or misuse 
+    of one or more AI systems directly or indirectly leads to actual harm, 
+    potential harm, or a significant deviation from intended safe operation 
+    affecting people, property, the environment, fundamental rights, or 
+    systemic integrity.
+
+event:
+  verification_status:
+    description: "Epistemic status of the report"
+    values:
+      - id: alleged
+        label: Alleged
+        description: "Reported via media/whistleblower, not independently verified"
+      - id: confirmed
+        label: Confirmed
+        description: "Verified by official investigation, provider admission, or regulatory finding"
+      - id: disputed
+        label: Disputed
+        description: "Conflicting credible accounts about occurrence or AI causation"
+
+  lifecycle_phase:
+    description: "Phase in the AI lifecycle where the event originates"
+    values:
+      - id: design_and_training
+        label: Design & Training
+      - id: testing_and_validation
+        label: Testing & Validation
+      - id: deployment_and_integration
+        label: Deployment & Integration
+      - id: operation_and_monitoring
+        label: Operation & Monitoring
+      - id: decommissioning
+        label: Decommissioning / Post-Market
+
+  system_classification:
+    description: "Functional classification of the involved AI system"
+    values:
+      - id: high_risk_regulated
+        label: High-Risk Regulated System
+      - id: general_purpose_model
+        label: General-Purpose AI Model
+      - id: autonomous_agent
+        label: Autonomous Agent / Agentic System
+      - id: biometric_identification
+        label: Biometric Identification System
+      - id: critical_infrastructure_component
+        label: Critical Infrastructure Component
+      - id: dual_use_security
+        label: Dual-Use / Security-Relevant System
+      - id: unclassified
+        label: Unclassified / Other
+
+mechanism:
+  root_cause_category:
+    description: "Primary causal dimension (MIT Causal Taxonomy)"
+    values:
+      - id: data
+        label: Data
+        subtypes: [bias, poisoning, distribution_shift, provenance_failure, labeling_error]
+      - id: model
+        label: Model
+        subtypes: [hallucination, robustness_failure, alignment_failure, emergent_behavior]
+      - id: human
+        label: Human Factor
+        subtypes: [negligence, inadequate_oversight, skill_gap, intentional_misuse]
+      - id: governance
+        label: Governance & Process
+        subtypes: [missing_risk_assessment, inadequate_monitoring, no_incident_plan, supply_chain_gap]
+      - id: external
+        label: External Environment
+        subtypes: [adversarial_attack, infrastructure_failure, regulatory_change, third_party_dependency]
+      - id: undetermined
+        label: Undetermined
+
+  failure_mode:
+    description: "Concrete failure mode bridging cause and consequence"
+    note: "Narrative field connecting WHY something failed to WHAT went wrong"
+
+consequence:
+  harm_domain:
+    description: "Affected harm domain"
+    values:
+      - id: persons_physical
+        label: Persons – Physical Harm
+      - id: persons_mental
+        label: Persons – Mental/Psychological Harm
+      - id: persons_rights
+        label: Persons – Fundamental Rights
+      - id: property
+        label: Property / Assets
+      - id: environment
+        label: Natural or Built Environment
+      - id: systemic_integrity
+        label: Systemic Integrity / Safety
+      - id: societal
+        label: Societal / Democratic Fabric
+
+  temporality:
+    description: "Temporality of harm (OECD Incident/Hazard distinction)"
+    values:
+      - id: actual
+        label: Actual Harm
+      - id: potential
+        label: Potential Harm (Near Miss)
+      - id: latent
+        label: Latent Risk
+
+  severity:
+    description: "Severity level (framework-neutral)"
+    values:
+      - id: critical
+        label: Critical
+      - id: high
+        label: High
+      - id: medium
+        label: Medium
+      - id: low
+        label: Low
+
+metadata_schema:
+  required_fields:
+    - incident_id
+    - date
+    - event.verification_status
+    - event.lifecycle_phase
+    - event.system_classification
+    - mechanism.root_cause_category
+    - consequence.harm_domain
+    - consequence.temporality
+    - consequence.severity
+  optional_fields:
+    - mechanism.failure_mode
+    - geographic_scope
+    - affected_parties
+    - mitigation_status
+    - source_urls
+    - related_incidents
+
+views:
+  eu_ai_act_serious_incident:
+    description: "Triggers reporting obligation under EU AI Act Art. 73"
+    query: >
+      consequence.temporality == 'actual' 
+      AND consequence.harm_domain IN ['persons_physical', 'persons_mental', 'persons_rights', 'property', 'environment']
+      AND consequence.severity IN ['critical', 'high']
+      AND event.system_classification == 'high_risk_regulated'
+
+  nist_ai_rmf_measure_trigger:
+    description: "Requires reassessment per NIST AI RMF Measure function"
+    query: >
+      mechanism.root_cause_category == 'governance'
+      OR (consequence.temporality == 'potential' AND consequence.severity >= 'medium')
+      OR (consequence.harm_domain == 'systemic_integrity')
+
+  iso_42001_communication_required:
+    description: "Triggers communication obligation per ISO 42001 A.8.4"
+    query: >
+      consequence.severity >= 'medium'
+      OR mechanism.root_cause_category == 'governance'
+
+  trend_analysis_eligible:
+    description: "Sufficient quality for trend analysis"
+    query: >
+      event.verification_status != 'disputed'
+      AND mechanism.root_cause_category != 'undetermined'
+      AND consequence.harm_domain IS NOT NULL
