@@ -166,7 +166,7 @@ def main(argv: List[str] | None = None) -> int:
     since = (
         datetime.fromisoformat(args.since)
         if args.since
-        else datetime.now(timezone.utc) - timedelta(days=2)
+        else datetime.now(timezone.utc) - timedelta(hours=25)  # 25h overlap ensures no gaps
     )
 
     if args.dry_run:
