@@ -1,23 +1,24 @@
-"""CI check: the BigQuery source adapter builds a valid, cost-controlled query."""
+"""CI check: the BigQuery source builds a partition-pruned, cost-controlled query."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from scripts.config_loader import all_entity_aliases, load_watchlist
 from scripts.source_gdelt_bigquery import build_query
 
 
 def main() -> None:
-    entities = all_entity_aliases(load_watchlist())
     until = datetime.now(timezone.utc)
-    since = until - timedelta(days=2)
-    sql = build_query(since, until, entities)
+    since = until - timedelta(hours=24)
+    sql = build_query(since, until)
 
-    assert "gdelt-bq.gdeltv2.gkg" in sql, "wrong table"
-    assert "DATE BETWEEN" in sql, "missing partition pruning (cost control)"
-    assert "REGEXP_CONTAINS" in sql, "missing entity/theme matching"
-    assert "LIMIT" in sql, "missing result cap (cost control)"
+    assert "gkg_partitioned" in sql, "must target the partitioned table"
+    assert "_PARTITIONTIME" in sql, "must use the partition column"
+    assert r"\b(ai|" in sql, "must include AI keyword alternation"
+    assert r"\b(incident|" in sql, "must include incident keyword alternation"
+    assert "NOT REGEXP_CONTAINS" in sql, "must include exclusion filter"
+    assert "< -3.0" in sql, "must include tone threshold"
+    assert "LIMIT" in sql, "must cap result size"
 
     print(f"OK: source SQL builds correctly ({len(sql)} chars)")
 
