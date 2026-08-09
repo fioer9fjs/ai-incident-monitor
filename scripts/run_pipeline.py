@@ -132,7 +132,7 @@ class StubRender:
 
 
 def _synthetic_items() -> List[RawItem]:
-    now = datetime.now(timezone.utc)
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
     return [
         RawItem(
             source="synthetic",
