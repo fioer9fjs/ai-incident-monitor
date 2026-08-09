@@ -163,11 +163,9 @@ def main(argv: List[str] | None = None) -> int:
                         help="ISO-8601 datetime; default = 2 days ago.")
     args = parser.parse_args(argv)
 
-    since = (
-        datetime.fromisoformat(args.since)
-        if args.since
-        else datetime.now(timezone.utc) - timedelta(hours=25)  # 25h overlap ensures no gaps
-    )
+    until = datetime.now(timezone.utc)
+    since = until - timedelta(hours=24)
+    print(f"Fetching incidents from {since.isoformat()} to {until.isoformat()}")
 
     if args.dry_run:
         raw: List[RawItem] = _synthetic_items()
@@ -175,7 +173,7 @@ def main(argv: List[str] | None = None) -> int:
     else:
         from scripts.source_gdelt_bigquery import GdeltBigQuerySource
         source: SourceAdapter = GdeltBigQuerySource()
-        raw = source.fetch(since)
+        raw = source.fetch(since, until)
         print(f"[source] fetched {len(raw)} candidates since {since:%Y-%m-%d}")
 
     filter_engine: FilterEngine = WatchlistFilterEngine()
