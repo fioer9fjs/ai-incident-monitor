@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List
 
 from scripts.config_loader import load_taxonomy, load_watchlist
+from scripts.filter_engine import WatchlistFilterEngine
 from scripts.interfaces import (
     Candidate,
     EnrichPipe,
