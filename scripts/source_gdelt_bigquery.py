@@ -29,34 +29,39 @@ CONTEXT_THEME_PATTERNS = [
 ]
 
 
-def build_query(since: datetime, entity_records: List[Dict[str, Any]],
-                max_rows: int = 500) -> str:
+def build_query(
+    since: datetime,
+    until: datetime,
+    entity_records: List[Dict[str, Any]],
+    max_rows: int = DEFAULT_MAX_ROWS,
+) -> str:
     """Build a cost-controlled SQL query for candidate articles.
 
-    Cost control: DATE filter enables partition pruning, only five
-    columns are selected, and LIMIT caps the result set.
+    Cost control: Explicit BETWEEN on DATE enables partition pruning,
+    only five columns are selected, and LIMIT caps the result set.
     """
     if not entity_records:
         raise ValueError("entity_records must not be empty")
 
-    plain = [r for r in entity_records if not r["requires_context"]]
-    contextual = [r for r in entity_records if r["requires_context"]]
+    plain_aliases = [
+        alias
+        for record in entity_records
+        if not record["requires_context"]
+        for alias in record["aliases"]
+    ]
+    contextual_aliases = [
+        alias
+        for record in entity_records
+        if record["requires_context"]
+        for alias in record["aliases"]
+    ]
 
-    plain_re = "|".join(
-        re.escape(a) for a in sorted({a for r in plain for a in r["aliases"]})
-    )
-    ctx_re = "|".join(
-        re.escape(a) for a in sorted({a for r in contextual for a in r["aliases"]})
-    )
+    plain_re = "|".join(re.escape(a) for a in sorted(set(plain_aliases)))
+    ctx_re = "|".join(re.escape(a) for a in sorted(set(contextual_aliases)))
     theme_re = "|".join(re.escape(t) for t in CONTEXT_THEME_PATTERNS)
 
     since_int = int(since.strftime("%Y%m%d000000"))
-
-    plain_cond = f"REGEXP_CONTAINS(LOWER(AllNames), r'{plain_re}')"
-    ctx_cond = (
-        f"(REGEXP_CONTAINS(LOWER(AllNames), r'{ctx_re}') "
-        f"AND REGEXP_CONTAINS(V2Themes, r'{theme_re}'))"
-    )
+    until_int = int(until.strftime("%Y%m%d000000"))
 
     return f"""
 SELECT
@@ -67,10 +72,16 @@ SELECT
   AllNames,
   V2Tone
 FROM {GKG_TABLE}
-WHERE DATE >= {since_int}
-  AND ({plain_cond} OR {ctx_cond})
+WHERE DATE BETWEEN {since_int} AND {until_int}
+  AND (
+    REGEXP_CONTAINS(LOWER(AllNames), r'{plain_re}')
+    OR (
+      REGEXP_CONTAINS(LOWER(AllNames), r'{ctx_re}')
+      AND REGEXP_CONTAINS(V2Themes, r'{theme_re}')
+    )
+  )
 LIMIT {max_rows}
-"""
+""".strip()
 
 
 class GdeltBigQuerySource:
@@ -98,31 +109,38 @@ class GdeltBigQuerySource:
             self._client = bigquery.Client(project=self.project)
         return self._client
 
-    def fetch(self, since: datetime) -> List[RawItem]:
-        sql = build_query(
-            since, all_entity_aliases(load_watchlist()), self.max_rows
-        )
-        client = self._get_client()
-        rows = client.query(sql).result()
-
-        items: List[RawItem] = []
-        for row in rows:
-            items.append(
-                RawItem(
-                    source=self.source_name,
-                    source_id=str(row["GKGRecordId"]),
-                    url=str(row["DocumentIdentifier"]),
-                    title="",  # GKG has no title; filled by the enrich stage
-                    snippet=str(row["V2Themes"])[:500],
-                    published_at=datetime.strptime(
-                        str(row["DATE"])[:14], "%Y%m%d%H%M%S"
-                    ),
-                    language="unknown",
-                    metadata={
-                        "themes": str(row["V2Themes"]),
-                        "names": str(row["AllNames"])[:2000],
-                        "tone": row["V2Tone"],
-                    },
-                )
+    def fetch(self, since: datetime, until: datetime) -> List[RawItem]:
+    """Fetch candidates from GKG table within the time window."""
+    entities = all_entity_aliases(load_watchlist())
+    sql = build_query(since, until, entities, self.max_rows)
+    client = self._get_client()
+    
+    # Dry run to estimate bytes before executing
+    job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
+    dry_job = client.query(sql, job_config=job_config)
+    print(f"[dry-run] estimated bytes scanned: {dry_job.total_bytes_processed:,}")
+    
+    # Actual query
+    rows = client.query(sql).result()
+    items: List[RawItem] = []
+    
+    for row in rows:
+        items.append(
+            RawItem(
+                source="gdelt_gkg",
+                source_id=str(row["GKGRecordId"]),
+                url=str(row["DocumentIdentifier"]),
+                title="",
+                snippet="",
+                published_at=datetime.strptime(
+                    str(row["DATE"]), "%Y%m%d%H%M%S"
+                ).replace(tzinfo=timezone.utc),
+                language="",
+                metadata={
+                    "themes": row["V2Themes"],
+                    "names": row["AllNames"],
+                    "tone": row["V2Tone"],
+                },
             )
-        return items
+        )
+    return items
