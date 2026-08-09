@@ -1,4 +1,4 @@
-name: Validate configs
+name: Validate and run pipeline
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -14,3 +14,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Validate configs and interfaces
         run: python -m scripts.validate_config
+      - name: Check source SQL construction
+        run: python -m scripts.check_source_sql
+      - name: Run pipeline in dry-run mode
+        run: python -m scripts.run_pipeline --dry-run
