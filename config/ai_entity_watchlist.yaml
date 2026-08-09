@@ -1,0 +1,94 @@
+# ai_entity_watchlist.yaml
+# Curated list of AI-relevant entities for GDELT filtering
+# Version: 1.0
+
+metadata:
+  last_updated: "2026-08-09"
+  matching_strategy: >
+    Case-insensitive substring match against GKG V2Names and V2Organizations.
+    For multi-word entities, require exact phrase match.
+    Single-word technical terms require co-occurrence with TECH_* theme or CAMEO code.
+
+entities:
+  ai_companies:
+    entries:
+      - name: "OpenAI"
+        aliases: ["openai", "Open AI"]
+      - name: "Anthropic"
+        aliases: ["anthropic"]
+      - name: "Google DeepMind"
+        aliases: ["deepmind", "google deepmind", "google brain"]
+      - name: "Meta AI"
+        aliases: ["meta ai", "facebook ai", "fair"]
+      - name: "xAI"
+        aliases: ["xai"]
+      - name: "Mistral AI"
+        aliases: ["mistral", "mistral ai"]
+      - name: "Stability AI"
+        aliases: ["stability ai", "stable diffusion"]
+      - name: "Baidu AI"
+        aliases: ["baidu ai", "ernie bot"]
+      - name: "SenseTime"
+        aliases: ["sensetime"]
+      - name: "NVIDIA"
+        aliases: ["nvidia"]
+        requires_context: true
+      - name: "Tesla"
+        aliases: ["tesla autopilot", "tesla fsd"]
+        requires_context: true
+
+  ai_models_products:
+    entries:
+      - name: "ChatGPT"
+        aliases: ["chatgpt", "gpt-4", "gpt-4o"]
+      - name: "Claude"
+        aliases: ["claude", "claude-3"]
+      - name: "Gemini"
+        aliases: ["gemini", "bard"]
+        requires_context: true
+      - name: "Llama"
+        aliases: ["llama", "llama-2", "llama-3"]
+        requires_context: true
+      - name: "DALL-E"
+        aliases: ["dall-e", "dalle"]
+      - name: "Midjourney"
+        aliases: ["midjourney"]
+      - name: "Copilot"
+        aliases: ["github copilot", "microsoft copilot"]
+        requires_context: true
+
+  regulators_authorities:
+    entries:
+      - name: "EU AI Office"
+        aliases: ["eu ai office", "european ai office"]
+      - name: "NIST"
+        aliases: ["nist"]
+        requires_context: true
+      - name: "CAC"
+        aliases: ["cyberspace administration of china", "cac china"]
+      - name: "FTC"
+        aliases: ["federal trade commission"]
+        requires_context: true
+
+  technical_terms:
+    note: "All entries require_context: true by default"
+    entries:
+      - name: "Facial Recognition"
+        aliases: ["facial recognition", "face recognition"]
+      - name: "Autonomous Vehicle"
+        aliases: ["autonomous vehicle", "self-driving car"]
+      - name: "Large Language Model"
+        aliases: ["large language model", "llm"]
+      - name: "Generative AI"
+        aliases: ["generative ai", "genai"]
+      - name: "Deepfake"
+        aliases: ["deepfake", "deep fake"]
+
+  research_institutions:
+    entries:
+      - name: "MIT AI Risk Repository"
+        aliases: ["mit ai risk"]
+      - name: "Stanford HAI"
+        aliases: ["stanford hai"]
+      - name: "AI Incident Database"
+        aliases: ["aiid", "incidentdatabase.ai"]
