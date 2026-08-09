@@ -14,3 +14,5 @@ jobs:
         run: pip install -r requirements.txt
       - name: Validate configs and interfaces
         run: python -m scripts.validate_config
+      - name: Check source SQL
+        run: python -m scripts.check_source_sql
