@@ -25,6 +25,8 @@ jobs:
         run: python -m scripts.validate_config
       - name: Check source SQL construction
         run: python -m scripts.check_source_sql
+      - name: Check filter engine behavior
+        run: python -m scripts.check_filter
       - name: Run pipeline in dry-run mode
         run: python -m scripts.run_pipeline --dry-run
       - name: Commit generated incidents
