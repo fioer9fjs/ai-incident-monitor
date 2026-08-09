@@ -1,0 +1,58 @@
+name: Ingest AI Incidents (Live)
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+  workflow_dispatch:       # Manual trigger for testing
+
+permissions:
+  contents: write
+  id-token: write          # Required for OIDC
+
+env:
+  GCP_PROJECT_ID: gdelt-analytics-499211
+  GCP_WORKLOAD_IDENTITY_PROVIDER: projects/328659540926/locations/global/workloadIdentityPools/gh-actions/providers/github-oidc
+  GCP_SERVICE_ACCOUNT: aim-etl@gdelt-analytics-499211.iam.gserviceaccount.com
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        
+      - name: Run live pipeline
+        run: |
+          # Fetch incidents from the last 24 hours
+          python -m scripts.run_pipeline
+        env:
+          GCP_PROJECT: ${{ env.GCP_PROJECT_ID }}
+          
+      - name: Commit new incidents
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add incidents/
+          if git diff --staged --quiet; then
+            echo "No new incidents to commit"
+          else
+            git commit -m "chore: ingest AI incidents $(date +%Y-%m-%d) [skip ci]"
+            git push
+          fi
