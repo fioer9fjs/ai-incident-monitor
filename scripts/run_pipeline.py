@@ -17,6 +17,7 @@ from typing import List
 
 from scripts.config_loader import load_taxonomy, load_watchlist
 from scripts.filter_engine import WatchlistFilterEngine
+from scripts.enrich_rules import RuleBasedEnricher
 from scripts.interfaces import (
     Candidate,
     EnrichPipe,
@@ -118,6 +119,8 @@ class StubRender:
             f"  temporality: {inc.consequence['temporality']}\n"
             f"  severity: {inc.consequence['severity']}\n"
             f"source_urls: {inc.source_urls}\n"
+            f"views: {inc.views}\n"
+            f"matched_entities: {inc.metadata.get('matched_entities', [])}\n"
             "---\n\n"
         )
         return fm + f"# {inc.title}\n\n{inc.summary}\n"
@@ -176,7 +179,7 @@ def main(argv: List[str] | None = None) -> int:
         print(f"[source] fetched {len(raw)} candidates since {since:%Y-%m-%d}")
 
     filter_engine: FilterEngine = WatchlistFilterEngine()
-    enrich_pipe: EnrichPipe = StubEnrich()
+    enrich_pipe: EnrichPipe = RuleBasedEnricher()
     renderer: RenderAdapter = StubRender()
 
     candidates = filter_engine.filter(raw)
