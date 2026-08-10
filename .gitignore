@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Private infrastructure notes - never commit
+docs/INFRA.local.md
