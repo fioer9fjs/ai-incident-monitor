@@ -87,9 +87,24 @@ class MarkdownRenderAdapter:
             f"source_urls: {inc.source_urls}\n"
             f"views: {inc.views}\n"
             f"matched_entities: {inc.metadata.get('matched_entities', [])}\n"
-            "---\n\n"
         )
-        return fm + f"# {inc.title}\n\n{inc.summary}\n"
+        if inc.updates:
+            fm += f"updates:\n"
+            for upd in inc.updates:
+                fm += (
+                    f"  - date: {upd.get('date', '')}\n"
+                    f"    title: \"{upd.get('title', '')}\"\n"
+                    f"    summary: \"{upd.get('summary', '')[:100]}...\"\n"
+                )
+        fm += "---\n\n"
+
+        body = f"# {inc.title}\n\n{inc.summary}\n"
+        if inc.updates:
+            body += "\n## Timeline\n\n"
+            for upd in inc.updates:
+                body += f"### {upd.get('date', '')[:10]} — {upd.get('title', '')}\n\n"
+                body += f"{upd.get('summary', '')}\n\n"
+        return fm + body
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +190,12 @@ def main(argv: List[str] | None = None) -> int:
 
     incidents = enrich_pipe.enrich(candidates)
     print(f"[enrich] {len(incidents)} incidents classified")
+
+    # Merge with existing incidents for cross-day deduplication
+    from scripts.incident_tracker import IncidentTracker
+    tracker = IncidentTracker()
+    incidents = tracker.merge_or_create(incidents)
+    print(f"[tracker] {len(incidents)} total incidents after merge")
 
     if args.limit is not None:
         incidents = incidents[:args.limit]

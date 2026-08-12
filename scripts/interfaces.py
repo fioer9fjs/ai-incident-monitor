@@ -51,6 +51,7 @@ class Incident:
     consequence: Dict[str, Any]
     views: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    updates: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @runtime_checkable
