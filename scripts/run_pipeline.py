@@ -165,7 +165,7 @@ def main(argv: List[str] | None = None) -> int:
         raw = source.fetch(since, until)
         print(f"[source] fetched {len(raw)} candidates since {since:%Y-%m-%d}")
 
-        # Enrich raw items with scraped title + first paragraph
+        # Enrich raw items with scraped title + first paragraph + full text
         from scripts.scraper import fetch_article
         enriched = 0
         for item in raw:
@@ -173,6 +173,7 @@ def main(argv: List[str] | None = None) -> int:
             if article:
                 item.title = article.title
                 item.snippet = article.first_paragraph
+                item.metadata["full_text"] = article.full_text
                 enriched += 1
         print(f"[scraper] enriched {enriched} of {len(raw)} items")
 

@@ -55,6 +55,14 @@ def build_user_prompt(candidate: Candidate) -> str:
     if candidate.matched_themes:
         metadata_lines.append(f"Matched themes: {', '.join(candidate.matched_themes)}")
 
+    # Include BigQuery metadata (names & themes from GKG)
+    bq_names = raw.metadata.get("names", "")
+    bq_themes = raw.metadata.get("themes", "")
+    if bq_names:
+        metadata_lines.append(f"Named entities (GKG): {bq_names[:500]}")
+    if bq_themes:
+        metadata_lines.append(f"Themes (GKG): {bq_themes[:500]}")
+
     parts = [
         "=== ARTICLE ===",
         f"Title: {raw.title or '(no title)'}",

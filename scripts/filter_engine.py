@@ -73,6 +73,7 @@ class WatchlistFilterEngine:
         text = " ".join(
             [
                 (item.metadata.get("names", "") or "").lower(),
+                (item.metadata.get("full_text", "") or "").lower()[:5000],
                 (item.title or "").lower(),
                 (item.snippet or "").lower(),
             ]

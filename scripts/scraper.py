@@ -13,7 +13,7 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup
 
-DEFAULT_TIMEOUT = 5  # seconds
+DEFAULT_TIMEOUT = 15  # seconds
 MAX_RETRIES = 3
 
 # Common User-Agents to rotate (minimal set, polite)
