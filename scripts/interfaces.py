@@ -55,7 +55,8 @@ class Incident:
 
 @runtime_checkable
 class SourceAdapter(Protocol):
-    def fetch(self, since: datetime) -> List[RawItem]: ...
+    def fetch(self, since: datetime, until: datetime) -> List[RawItem]: ...
+
 
 
 @runtime_checkable

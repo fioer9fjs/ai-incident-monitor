@@ -2,7 +2,8 @@
 
 Run modes:
   --dry-run     Skip source adapter, use synthetic sample data
-  --since DATE  Override the fetch window (ISO 8601, default: 2 days ago)
+  --since DATE  Override the fetch window (ISO 8601, default: 24 hours ago)
+  --limit N     Cap the number of incidents written (default: unlimited)
 
 Outputs Markdown incident files into the incidents/ directory.
 """
@@ -10,6 +11,8 @@ Outputs Markdown incident files into the incidents/ directory.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -19,7 +22,6 @@ from scripts.config_loader import load_taxonomy, load_watchlist
 from scripts.filter_engine import WatchlistFilterEngine
 from scripts.enrich_rules import RuleBasedEnricher
 from scripts.interfaces import (
-    Candidate,
     EnrichPipe,
     FilterEngine,
     Incident,
@@ -31,75 +33,39 @@ from scripts.interfaces import (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INCIDENTS_DIR = REPO_ROOT / "incidents"
 
-
-# ---------------------------------------------------------------------------
-# Stubs — minimal implementations fulfilling the module contracts.
-# Each stub will be replaced by a real module in subsequent steps.
-# ---------------------------------------------------------------------------
+# Characters allowed in a safe filename derived from an incident_id.
+_SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
-class StubFilter:
-    """Pass-through filter until the real filter engine is built."""
+class MarkdownRenderAdapter:
+    """Writes one Markdown file per incident with YAML frontmatter.
 
-    def filter(self, items: List[RawItem]) -> List[Candidate]:
-        return [
-            Candidate(raw=item, matched_entities=[], matched_themes=[],
-                      matched_cameo=[], confidence=1.0)
-            for item in items
-        ]
-
-
-class StubEnrich:
-    """Minimal enrich: populates required taxonomy fields with placeholders."""
-
-    def __init__(self) -> None:
-        self.taxonomy = load_taxonomy()
-        self.watchlist = load_watchlist()
-
-    def enrich(self, candidates: List[Candidate]) -> List[Incident]:
-        incidents: List[Incident] = []
-        for i, cand in enumerate(candidates):
-            incidents.append(
-                Incident(
-                    incident_id=f"{cand.raw.published_at:%Y%m%d}-{cand.raw.source_id[:8] or i}",
-                    date=cand.raw.published_at,
-                    title=cand.raw.title or "(untitled candidate)",
-                    summary=cand.raw.snippet[:200],
-                    source_urls=[cand.raw.url] if cand.raw.url else [],
-                    event={
-                        "verification_status": "alleged",
-                        "lifecycle_phase": "operation_and_monitoring",
-                        "system_classification": "unclassified",
-                    },
-                    mechanism={
-                        "root_cause_category": "undetermined",
-                        "failure_mode": "",
-                    },
-                    consequence={
-                        "harm_domain": "systemic_integrity",
-                        "temporality": "potential",
-                        "severity": "low",
-                    },
-                    views=[],
-                    metadata={"raw_source": cand.raw.source},
-                )
-            )
-        return incidents
-
-
-class StubRender:
-    """Writes one Markdown file per incident with YAML frontmatter."""
+    Guards against path-traversal by rejecting incident IDs that contain
+    directory separators or parent-directory sequences.
+    """
 
     def render(self, incidents: List[Incident]) -> dict[str, str]:
         INCIDENTS_DIR.mkdir(parents=True, exist_ok=True)
         outputs: dict[str, str] = {}
         for inc in incidents:
-            filename = f"{inc.incident_id}.md"
+            safe_id = self._sanitize_id(inc.incident_id)
+            filename = f"{safe_id}.md"
             path = INCIDENTS_DIR / filename
+            # Defensive: ensure resolved path stays inside INCIDENTS_DIR
+            if not str(path.resolve()).startswith(str(INCIDENTS_DIR.resolve())):
+                raise ValueError(f"Incident ID resolves outside target dir: {inc.incident_id}")
             content = self._render_one(inc)
             path.write_text(content, encoding="utf-8")
             outputs[str(path.relative_to(REPO_ROOT))] = content
         return outputs
+
+    @staticmethod
+    def _sanitize_id(incident_id: str) -> str:
+        if not _SAFE_ID_RE.match(incident_id):
+            # Fallback: hash anything suspicious so the file is still written safely
+            hashed = hashlib.sha256(incident_id.encode("utf-8")).hexdigest()[:16]
+            return f"unsafe-{hashed}"
+        return incident_id
 
     @staticmethod
     def _render_one(inc: Incident) -> str:
@@ -107,7 +73,7 @@ class StubRender:
             "---\n"
             f"incident_id: {inc.incident_id}\n"
             f"date: {inc.date:%Y-%m-%d}\n"
-            f"title: \"{inc.title}\"\n"
+            f'title: "{inc.title}"\n'
             f"event:\n"
             f"  verification_status: {inc.event['verification_status']}\n"
             f"  lifecycle_phase: {inc.event['lifecycle_phase']}\n"
@@ -160,11 +126,16 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="Skip source adapter, use synthetic data.")
     parser.add_argument("--since", type=str, default=None,
-                        help="ISO-8601 datetime; default = 2 days ago.")
+                        help="ISO-8601 datetime; default = 24 hours ago.")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Maximum number of incidents to write.")
     args = parser.parse_args(argv)
 
     until = datetime.now(timezone.utc)
-    since = until - timedelta(hours=24)
+    if args.since:
+        since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc)
+    else:
+        since = until - timedelta(hours=24)
     print(f"Fetching incidents from {since.isoformat()} to {until.isoformat()}")
 
     if args.dry_run:
@@ -176,15 +147,31 @@ def main(argv: List[str] | None = None) -> int:
         raw = source.fetch(since, until)
         print(f"[source] fetched {len(raw)} candidates since {since:%Y-%m-%d}")
 
+        # Enrich raw items with scraped title + first paragraph
+        from scripts.scraper import fetch_article
+        enriched = 0
+        for item in raw:
+            article = fetch_article(item.url)
+            if article:
+                item.title = article.title
+                item.snippet = article.first_paragraph
+                enriched += 1
+        print(f"[scraper] enriched {enriched} of {len(raw)} items")
+
     filter_engine: FilterEngine = WatchlistFilterEngine()
+
     enrich_pipe: EnrichPipe = RuleBasedEnricher()
-    renderer: RenderAdapter = StubRender()
+    renderer: RenderAdapter = MarkdownRenderAdapter()
 
     candidates = filter_engine.filter(raw)
     print(f"[filter] {len(candidates)} candidates passed")
 
     incidents = enrich_pipe.enrich(candidates)
     print(f"[enrich] {len(incidents)} incidents classified")
+
+    if args.limit is not None:
+        incidents = incidents[:args.limit]
+        print(f"[limit] capped to {args.limit} incidents")
 
     outputs = renderer.render(incidents)
     print(f"[render] wrote {len(outputs)} files to {INCIDENTS_DIR}")

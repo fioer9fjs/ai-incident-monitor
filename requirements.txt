@@ -1,2 +1,15 @@
-PyYAML>=6.0
-google-cloud-bigquery>=3.11.0
+# AI Incident Monitor — pinned dependencies
+# Update via: pip install -r requirements.txt && pip freeze > requirements.txt
+# Security audit: pip-audit
+
+PyYAML==6.0.2
+google-cloud-bigquery==3.43.0
+requests==2.34.2
+beautifulsoup4==4.13.3
+
+# Dev / CI only (not installed in production ingest)
+# bandit==1.7.9
+# pip-audit==2.7.3
+# pytest==9.1.1
+
+

@@ -1,4 +1,4 @@
-"""CI check: the filter engine matches, enforces context, and deduplicates."""
+"""CI check: the filter engine scores URL keywords, entities, and themes."""
 
 from __future__ import annotations
 
@@ -10,14 +10,9 @@ from scripts.interfaces import RawItem
 
 def _item(url: str, names: str, themes: str) -> RawItem:
     return RawItem(
-        source="synthetic",
-        source_id=url,
-        url=url,
-        title="",
-        snippet="",
-        published_at=datetime.now(timezone.utc),
-        language="en",
-        metadata={"names": names, "themes": themes},
+        source="synthetic", source_id=url, url=url, title="",
+        snippet="sample", published_at=datetime.now(timezone.utc),
+        language="en", metadata={"names": names, "themes": themes},
     )
 
 
@@ -25,27 +20,31 @@ def main() -> None:
     engine = WatchlistFilterEngine()
 
     items = [
-        # Plain entity, no context required -> must pass
-        _item("https://a.example/1", "OpenAI announces new model", ""),
-        # Context-required entity WITH context theme -> must pass
-        _item("https://a.example/2", "tesla fsd crash under investigation",
-              "TECH_AUTOMATION"),
-        # Context-required entity WITHOUT context -> must NOT pass
-        _item("https://a.example/3", "drivers complain about tesla fsd update", ""),
-        # Duplicate URL -> must be dropped
-        _item("https://a.example/1", "OpenAI announces new model", ""),
-        # Theme only, no entity -> below threshold, must NOT pass
-        _item("https://a.example/4", "weather report", "SURVEILLANCE"),
+        # URL AI+incident co-occurrence -> must pass
+        _item("https://a.example/openai-chatgpt-hallucination-lawsuit", "", ""),
+        # URL AI term only -> must fail
+        _item("https://a.example/openai-announces-new-model", "", ""),
+        # Aviation exclusion -> must fail
+        _item("https://a.example/airline-copilot-error-in-flight", "", ""),
+        # Watchlist entity + context theme -> must pass
+        _item("https://a.example/4", "OpenAI", "TECH_AUTOMATION"),
+        # Duplicate of the first item -> must be dropped
+        _item("https://a.example/openai-chatgpt-hallucination-lawsuit", "", ""),
     ]
 
     result = engine.filter(items)
     urls = [c.raw.url for c in result]
 
-    assert "https://a.example/1" in urls, "plain entity must pass"
-    assert "https://a.example/2" in urls, "contextual entity with context must pass"
-    assert "https://a.example/3" not in urls, "contextual entity without context must fail"
-    assert urls.count("https://a.example/1") == 1, "duplicates must be dropped"
-    assert "https://a.example/4" not in urls, "theme-only item must fail threshold"
+    assert "https://a.example/openai-chatgpt-hallucination-lawsuit" in urls, \
+        "URL keyword co-occurrence must pass"
+    assert "https://a.example/openai-announces-new-model" not in urls, \
+        "AI-only URL must fail"
+    assert "https://a.example/airline-copilot-error-in-flight" not in urls, \
+        "aviation exclusion must fail"
+    assert "https://a.example/4" in urls, \
+        "watchlist entity with context theme must pass"
+    assert urls.count("https://a.example/openai-chatgpt-hallucination-lawsuit") == 1, \
+        "duplicates must be dropped"
 
     print(f"OK: filter engine behaves correctly ({len(result)} of {len(items)} passed)")
 

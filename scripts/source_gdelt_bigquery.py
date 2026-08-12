@@ -1,70 +1,49 @@
 """GDELT GKG source adapter via BigQuery.
 
 Implements the SourceAdapter protocol. Uses the partitioned GKG table
-with a two-dimensional filter: AI keywords AND incident keywords must
-both appear in the document URL, combined with a negative tone threshold
-and an aviation-term exclusion (to avoid Copilot false positives).
+with a two-dimensional URL filter (AI term + incident term), an aviation
+exclusion, and a negative tone threshold. Keyword lists are shared with
+the filter engine via scripts/keywords.py so source and filter agree.
 """
 
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from scripts.interfaces import RawItem
+from scripts.keywords import (
+    AI_KEYWORDS,
+    EXCLUDE_TERMS,
+    INCIDENT_KEYWORDS,
+    TONE_THRESHOLD,
+    alternation,
+)
 
-# Partitioned table with _PARTITIONTIME column — enables proper partition pruning.
+# Partitioned table with _PARTITIONTIME column for proper partition pruning.
 GKG_TABLE = "`gdelt-bq.gdeltv2.gkg_partitioned`"
 
-# AI-related keywords (case-insensitive, word-boundary anchored).
-AI_KEYWORDS = [
-    "ai", "artificial-intelligence", "genai", "generative-ai",
-    "machine-learning", "chatgpt", "openai", "gpt", "llm",
-    "deepmind", "anthropic", "claude", "copilot", "gemini",
-    "mistral", "huggingface", "hugging-face", "xai",
-    "midjourney", "stable-diffusion", "sora", "perplexity", "grok",
-]
-
-# Incident-related keywords — must co-occur with an AI keyword.
-INCIDENT_KEYWORDS = [
-    "incident", "failure", "outage", "glitch", "breach", "hack",
-    "flaw", "vulnerability", "hallucination", "deepfake", "bias",
-    "jailbreak", "lawsuit", "fraud", "fine", "ban", "probe",
-    "investigation", "violation", "copyright", "penalty", "leak",
-    "exploit", "scam", "malware", "error", "crash", "bug",
-    "malfunction", "misinformation", "disinformation",
-    "plagiarism", "propaganda",
-]
-
-# Aviation terms to exclude (avoid "Copilot" false positives in airline news).
-EXCLUDE_TERMS = ["flight", "plane", "aircraft", "aviation",
-                 "airline", "airlines", "pilot", "jet"]
-
 DEFAULT_MAX_ROWS = 5000
-TONE_THRESHOLD = -3.0
 
 
-def _build_alternation(words: List[str]) -> str:
-    return r"\b(" + "|".join(words) + r")\b"
+def build_query(since: datetime, until: datetime,
+                max_rows: int = DEFAULT_MAX_ROWS) -> str:
+    """Build a cost-controlled query against the partitioned GKG table."""
+    if not isinstance(since, datetime) or not isinstance(until, datetime):
+        raise TypeError("since and until must be datetime instances")
+    if since.tzinfo is None or until.tzinfo is None:
+        raise ValueError("since and until must be timezone-aware")
+    if since >= until:
+        raise ValueError("since must be earlier than until")
+    if not (1 <= max_rows <= 50000):
+        raise ValueError("max_rows must be between 1 and 50000")
 
+    ai_re = alternation(AI_KEYWORDS)
 
-def build_query(
-    since: datetime,
-    until: datetime,
-    max_rows: int = DEFAULT_MAX_ROWS,
-) -> str:
-    """Build a cost-controlled query against the partitioned GKG table.
+    inc_re = alternation(INCIDENT_KEYWORDS)
+    excl_re = alternation(EXCLUDE_TERMS)
 
-    Cost control relies on _PARTITIONTIME pruning plus three additional
-    reductions: URL-only regex matching, negative tone filter, and a
-    hard LIMIT cap.
-    """
-    ai_re = _build_alternation(AI_KEYWORDS)
-    inc_re = _build_alternation(INCIDENT_KEYWORDS)
-    excl_re = _build_alternation(EXCLUDE_TERMS)
-
-    # BigQuery accepts ISO-8601 timestamps directly.
     since_iso = since.isoformat()
     until_iso = until.isoformat()
 
@@ -140,18 +119,16 @@ class GdeltBigQuerySource:
         items: List[RawItem] = []
         for row in rows:
             date_str = str(row["DATE"])[:14].ljust(14, "0")
-            published_at = datetime.strptime(
-                date_str, "%Y%m%d%H%M%S"
-            ).replace(tzinfo=timezone.utc)
-
             items.append(
                 RawItem(
                     source=self.source_name,
-                    source_id=f"{row['DATE']}-{row['url'][:32]}",
+                    source_id=f"{row['DATE']}-{str(row['url'])[:32]}",
                     url=str(row["url"]),
                     title="",
                     snippet="",
-                    published_at=published_at,
+                    published_at=datetime.strptime(
+                        date_str, "%Y%m%d%H%M%S"
+                    ).replace(tzinfo=timezone.utc),
                     language="unknown",
                     metadata={
                         "source_name": str(row["source_name"]),

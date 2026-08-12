@@ -41,21 +41,39 @@ class WatchlistFilterEngine:
             "|".join(re.escape(t) for t in CONTEXT_THEME_PATTERNS)
         )
 
+    @staticmethod
+    def _normalize_url(url: str) -> str:
+        """Strip query params and trailing slash for deduplication."""
+        if not url:
+            return ""
+        url = url.lower().rstrip("/")
+        if "?" in url:
+            url = url.split("?")[0]
+        return url
+
     def filter(self, items: List[RawItem]) -> List[Candidate]:
-        seen_urls = set()
+        seen_urls: set[str] = set()
         candidates: List[Candidate] = []
         for item in items:
-            if item.url:
-                if item.url in seen_urls:
+            norm = self._normalize_url(item.url)
+            if norm:
+                if norm in seen_urls:
                     continue
-                seen_urls.add(item.url)
+                seen_urls.add(norm)
             candidate = self._score(item)
             if candidate.confidence >= self.min_confidence:
                 candidates.append(candidate)
         return candidates
 
     def _score(self, item: RawItem) -> Candidate:
-        names = (item.metadata.get("names", "") or "").lower()
+        # Combine all text fields the scraper may have populated
+        text = " ".join(
+            [
+                (item.metadata.get("names", "") or "").lower(),
+                (item.title or "").lower(),
+                (item.snippet or "").lower(),
+            ]
+        )
         themes = item.metadata.get("themes", "") or ""
         has_context = bool(self.theme_re.search(themes))
 
@@ -68,7 +86,7 @@ class WatchlistFilterEngine:
             matched_themes = [t for t in CONTEXT_THEME_PATTERNS if t in themes]
 
         for record in self.entities:
-            if not any(alias in names for alias in record["aliases"]):
+            if not any(alias in text for alias in record["aliases"]):
                 continue
             if record["requires_context"] and not has_context:
                 continue
@@ -84,3 +102,5 @@ class WatchlistFilterEngine:
             matched_cameo=[],
             confidence=min(round(confidence, 2), 1.0),
         )
+
+

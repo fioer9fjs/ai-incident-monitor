@@ -1,10 +1,13 @@
-name: CI (Validate & Test)
+name: CI (Validate, Security & Test)
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -26,3 +29,27 @@ jobs:
         run: python -m scripts.check_enrich
       - name: Run pipeline in dry-run mode
         run: python -m scripts.run_pipeline --dry-run
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install security tools
+        run: pip install bandit pip-audit
+      - name: SAST (bandit)
+        run: bandit -r scripts/ -f json -o bandit-report.json || true
+      - name: Dependency audit (pip-audit)
+        run: pip-audit --requirement requirements.txt --format=json --output=pip-audit-report.json || true
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            pip-audit-report.json
+          retention-days: 7
+
+
