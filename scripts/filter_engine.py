@@ -13,6 +13,7 @@ from typing import List
 
 from scripts.config_loader import all_entity_aliases, load_watchlist
 from scripts.interfaces import Candidate, RawItem
+from scripts.keywords import compile_patterns
 
 CONTEXT_THEME_PATTERNS = [
     "TECH_AUTOMATION",
@@ -40,6 +41,7 @@ class WatchlistFilterEngine:
         self.theme_re = re.compile(
             "|".join(re.escape(t) for t in CONTEXT_THEME_PATTERNS)
         )
+        self.ai_re, self.inc_re, self.excl_re = compile_patterns()
 
     @staticmethod
     def _normalize_url(url: str) -> str:
@@ -66,6 +68,7 @@ class WatchlistFilterEngine:
         return candidates
 
     def _score(self, item: RawItem) -> Candidate:
+        url = (item.url or "").lower()
         # Combine all text fields the scraper may have populated
         text = " ".join(
             [
@@ -80,6 +83,11 @@ class WatchlistFilterEngine:
         matched_entities: List[str] = []
         matched_themes: List[str] = []
         confidence = 0.0
+
+        # Signal 1: URL keyword co-occurrence (mirrors the source SQL filter)
+        if (self.ai_re.search(url) and self.inc_re.search(url)
+                and not self.excl_re.search(url)):
+            confidence += 0.5
 
         if has_context:
             confidence += W_CONTEXT_THEME

@@ -129,6 +129,9 @@ def main(argv: List[str] | None = None) -> int:
                         help="ISO-8601 datetime; default = 24 hours ago.")
     parser.add_argument("--limit", type=int, default=None,
                         help="Maximum number of incidents to write.")
+    parser.add_argument("--enricher", type=str, default="rule",
+                        choices=["rule", "llm"],
+                        help="Enrichment backend: rule (default, free) or llm (costs API tokens).")
     args = parser.parse_args(argv)
 
     until = datetime.now(timezone.utc)
@@ -160,7 +163,11 @@ def main(argv: List[str] | None = None) -> int:
 
     filter_engine: FilterEngine = WatchlistFilterEngine()
 
-    enrich_pipe: EnrichPipe = RuleBasedEnricher()
+    if args.enricher == "llm":
+        from scripts.enrich_llm import LLMEnricher
+        enrich_pipe: EnrichPipe = LLMEnricher()
+    else:
+        enrich_pipe: EnrichPipe = RuleBasedEnricher()
     renderer: RenderAdapter = MarkdownRenderAdapter()
 
     candidates = filter_engine.filter(raw)
