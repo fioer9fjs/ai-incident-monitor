@@ -40,10 +40,13 @@ jobs:
         
       - name: Run live pipeline
         run: |
-          # Fetch incidents from the last 24 hours
-          python -m scripts.run_pipeline
+          # Fetch incidents from the last 24 hours with LLM enrichment
+          python -m scripts.run_pipeline --enricher llm
         env:
           GCP_PROJECT: ${{ env.GCP_PROJECT_ID }}
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
           
       - name: Commit new incidents
         id: commit

@@ -16,7 +16,16 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# Load .env file from repo root if it exists (no-op in CI where env vars are set directly)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+try:
+    from dotenv import load_dotenv
+    load_dotenv(REPO_ROOT / ".env")
+except ImportError:
+    pass
 
 
 @dataclass
