@@ -7,6 +7,9 @@
 tiers:
   tier_1:
     description: "High-precision keywords for SQL pre-filter. Cost-sensitive."
+    core_terms:
+      - ai
+      - artificial-intelligence
     models_products:
       - chatgpt
       - gpt-4
@@ -69,6 +72,7 @@ tiers:
       - aurora-innovation
       - anduril
     incident_terms:
+      - incident
       - hallucination
       - deepfake
       - jailbreak
@@ -98,7 +102,6 @@ tiers:
       - flaw
       - bug
       - error
-      - incident
 
   tier_2:
     description: "Medium-precision keywords for Python filter scoring. No additional SQL cost."

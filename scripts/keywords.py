@@ -42,9 +42,10 @@ _t1 = _tiers.get("tier_1", {})
 _t2 = _tiers.get("tier_2", {})
 _exclusions = _data.get("exclusions", {})
 
-# AI keywords = tier_1 models/products + tier_1 providers + tier_2 models/products + tier_2 providers
+# AI keywords = tier_1 core + models/products + providers + tier_2 models/products + providers
 AI_KEYWORDS: List[str] = (
-    _t1.get("models_products", [])
+    _t1.get("core_terms", [])
+    + _t1.get("models_products", [])
     + _t1.get("providers", [])
     + _t2.get("models_products", [])
     + _t2.get("providers", [])
