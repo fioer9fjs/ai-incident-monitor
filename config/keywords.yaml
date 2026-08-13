@@ -1,0 +1,338 @@
+# Structured keyword lists for AI and incident detection
+# Tier 1: High-precision, used in SQL query (cost-sensitive)
+# Tier 2: Medium-precision, used in Python filter (no additional cost)
+# Tier 3: Low-precision/noisy, used in enricher only (contextual)
+
+---
+tiers:
+  tier_1:
+    description: "High-precision keywords for SQL pre-filter. Cost-sensitive."
+    models_products:
+      - chatgpt
+      - gpt-4
+      - gpt-4o
+      - claude
+      - gemini
+      - copilot
+      - llama
+      - mistral
+      - deepseek
+      - qwen
+      - midjourney
+      - dall-e
+      - stable-diffusion
+      - sora
+      - perplexity
+      - grok
+      - ernie
+      - doubao
+      - hunyuan
+      - kimi
+      - chatglm
+      - internlm
+      - black-forest-labs
+      - aleph-alpha
+      - palantir
+      - cohere
+      - runway
+      - elevenlabs
+      - character-ai
+      - replika
+      - pi-ai
+      - waymo
+      - cruise
+      - zoox
+      - figure-ai
+      - clearview-ai
+      - nso-group
+      - pegasus
+    providers:
+      - openai
+      - anthropic
+      - deepmind
+      - huggingface
+      - hugging-face
+      - xai
+      - mistral
+      - baidu-ai
+      - alibaba-ai
+      - bytedance-ai
+      - moonshot-ai
+      - 01-ai
+      - shanghai-ai-lab
+      - c3-ai
+      - scale-ai
+      - inflection-ai
+      - tesla-autopilot
+      - tesla-fsd
+      - mobileye
+      - aurora-innovation
+      - anduril
+    incident_terms:
+      - hallucination
+      - deepfake
+      - jailbreak
+      - lawsuit
+      - breach
+      - vulnerability
+      - fraud
+      - investigation
+      - fine
+      - ban
+      - probe
+      - leak
+      - scam
+      - malware
+      - crash
+      - malfunction
+      - misinformation
+      - disinformation
+      - plagiarism
+      - copyright
+      - bias
+      - outage
+      - failure
+      - glitch
+      - exploit
+      - hack
+      - flaw
+      - bug
+      - error
+      - incident
+
+  tier_2:
+    description: "Medium-precision keywords for Python filter scoring. No additional SQL cost."
+    models_products:
+      - gpt
+      - llm
+      - genai
+      - generative-ai
+      - machine-learning
+      - artificial-intelligence
+      - tongyi-qianwen
+      - wenxin
+      - yi-34b
+      - glm-4
+      - flux
+      - lighthouse
+      - deepl
+      - jina-ai
+      - palantir-aip
+      - command-r
+      - runway-gen
+      - eleven-labs
+      - suno
+      - udio
+      - characterai
+      - inflection
+      - tesla-optimus
+      - figure-01
+      - 1x-technologies
+      - boston-dynamics
+      - spot-robot
+      - nuro
+      - palantir-gotham
+      - shield-ai
+      - celebrite
+    providers:
+      - langchain
+      - llamaindex
+      - ollama
+      - vllm
+      - replicate
+      - modal
+      - together-ai
+      - fireworks-ai
+      - groq
+      - cerebras
+      - sambanova
+      - zhipu
+      - baichuan
+      - minimax
+      - hailuo
+    harms_mit:
+      - hate-speech
+      - toxic
+      - slur
+      - racist
+      - sexism
+      - sexist
+      - homophobic
+      - transphobic
+      - xenophobic
+      - ableist
+      - redlining
+      - profiling
+      - stereotyping
+      - child-abuse
+      - csam
+      - grooming
+      - child-exploitation
+      - minor-safety
+      - underage
+      - cyberattack
+      - phishing
+      - ransomware
+      - spear-phishing
+      - social-engineering
+      - credential-theft
+      - zero-day
+      - supply-chain-attack
+      - doxxing
+      - doxing
+      - de-anonymization
+      - re-identification
+      - privacy-violation
+      - unauthorized-access
+      - injury
+      - death
+      - fatality
+      - collision
+      - lethal
+      - autonomous-weapon
+      - lethal-autonomous
+      - self-harm
+      - suicide
+      - job-loss
+      - job-displacement
+      - labor-displacement
+      - wage-theft
+      - antitrust
+      - monopoly
+      - price-fixing
+      - market-manipulation
+      - insider-trading
+      - election-interference
+      - voter-suppression
+      - astroturfing
+      - bot-network
+      - influence-operation
+      - information-operation
+      - civic-manipulation
+      - carbon-footprint
+      - energy-consumption
+      - water-usage
+      - e-waste
+      - emission
+      - addiction
+      - anxiety
+      - depression
+      - body-image
+      - eating-disorder
+      - parasocial
+      - terrorism
+      - bioweapon
+      - chemical-weapon
+      - cbrn
+      - weapons-proliferation
+    harms_cset:
+      - dual-use
+      - proliferation
+      - capability-overhang
+      - brittleness
+      - brittle
+      - distribution-shift
+      - unreliable
+      - robustness-failure
+      - opacity
+      - black-box
+      - unexplainable
+      - unaccountable
+      - lack-of-transparency
+      - market-concentration
+      - centralization
+      - winner-take-all
+    transparency:
+      - transparency-violation
+      - non-disclosure
+      - undeclared-ai
+      - unlabeled-ai
+      - undisclosed-ai
+      - synthetic-media
+      - synthetic-content
+      - watermark-missing
+      - provenance-missing
+      - content-authenticity
+      - c2pa
+    regulatory:
+      - eu-ai-act-violation
+      - non-compliance
+      - gdpr-violation
+      - cease-and-desist
+      - consent-decree
+      - enforcement-action
+      - recall
+      - product-recall
+      - safety-recall
+      - warning-letter
+      - fda-warning
+      - class-action
+      - multi-state
+      - federal-investigation
+      - whistleblower
+      - congressional-hearing
+      - senate-hearing
+      - emergency-patch
+      - hotfix
+      - rollback
+
+  tier_3:
+    description: "Low-precision/noisy keywords for enricher context only. Never in SQL or filter."
+    general_terms:
+      - ai
+      - artificial-intelligence
+      - machine-learning
+      - deep-learning
+      - neural-network
+      - automation
+      - algorithm
+      - model
+      - training
+      - inference
+      - deployment
+      - api
+      - cloud
+      - data
+      - privacy
+      - security
+      - ethics
+      - risk
+      - safety
+      - alignment
+      - governance
+      - regulation
+      - compliance
+      - audit
+      - benchmark
+      - evaluation
+      - testing
+      - validation
+      - monitoring
+      - logging
+      - traceability
+      - accountability
+
+exclusions:
+  aviation:
+    description: "Exclude aviation terminology to avoid Copilot false positives"
+    terms:
+      - flight
+      - plane
+      - aircraft
+      - aviation
+      - airline
+      - airlines
+      - pilot
+      - jet
+      - cockpit
+      - takeoff
+      - landing
+  financial:
+    description: "Exclude financial terminology to avoid stock market false positives"
+    terms:
+      - stock-price
+      - market-crash
+      - trading-volume
+      - portfolio
+      - dividend
+      - earnings-report

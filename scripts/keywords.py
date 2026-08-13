@@ -1,40 +1,110 @@
-"""Keyword lists for AI incident detection in GDELT GKG queries.
+"""Keyword loader: reads config/keywords.yaml and exposes typed constants.
 
-Centralised here so they can be reused by the BigQuery source adapter,
-alternative source adapters, or CI checks without duplicating constants.
+Provides backward-compatible exports so existing callers (source_gdelt_bigquery,
+filter_engine, tests) do not need to change.
 """
 
 from __future__ import annotations
 
 import re
+from pathlib import Path
+from typing import Any, Dict, List
+
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+KEYWORDS_PATH = REPO_ROOT / "config" / "keywords.yaml"
 
 
-# AI-related keywords (case-insensitive, word-boundary anchored).
-AI_KEYWORDS = [
-    "ai", "artificial-intelligence", "genai", "generative-ai",
-    "machine-learning", "chatgpt", "openai", "gpt", "llm",
-    "deepmind", "anthropic", "claude", "copilot", "gemini",
-    "mistral", "huggingface", "hugging-face", "xai",
-    "midjourney", "stable-diffusion", "sora", "perplexity", "grok",
-]
+def _load() -> Dict[str, Any]:
+    with open(KEYWORDS_PATH, "r", encoding="utf-8") as fh:
+        return yaml.safe_load(fh) or {}
 
-# Incident-related keywords — must co-occur with an AI keyword.
-INCIDENT_KEYWORDS = [
-    "incident", "failure", "outage", "glitch", "breach", "hack",
-    "flaw", "vulnerability", "hallucination", "deepfake", "bias",
-    "jailbreak", "lawsuit", "fraud", "fine", "ban", "probe",
-    "investigation", "violation", "copyright", "penalty", "leak",
-    "exploit", "scam", "malware", "error", "crash", "bug",
-    "malfunction", "misinformation", "disinformation",
-    "plagiarism", "propaganda",
-]
 
-# Aviation terms to exclude (avoid "Copilot" false positives in airline news).
-EXCLUDE_TERMS = ["flight", "plane", "aircraft", "aviation",
-                 "airline", "airlines", "pilot", "jet"]
+def _flatten(d: Dict[str, Any]) -> List[str]:
+    """Recursively extract string values from nested dicts/lists."""
+    result: List[str] = []
+    for v in d.values():
+        if isinstance(v, list):
+            result.extend(str(x) for x in v)
+        elif isinstance(v, dict):
+            result.extend(_flatten(v))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible flat lists (used by source_gdelt_bigquery + filter_engine)
+# ---------------------------------------------------------------------------
+
+_data = _load()
+_tiers = _data.get("tiers", {})
+_t1 = _tiers.get("tier_1", {})
+_t2 = _tiers.get("tier_2", {})
+_exclusions = _data.get("exclusions", {})
+
+# AI keywords = tier_1 models/products + tier_1 providers + tier_2 models/products + tier_2 providers
+AI_KEYWORDS: List[str] = (
+    _t1.get("models_products", [])
+    + _t1.get("providers", [])
+    + _t2.get("models_products", [])
+    + _t2.get("providers", [])
+)
+
+# Incident keywords = tier_1 incident_terms + tier_2 harms + regulatory + transparency + cset
+INCIDENT_KEYWORDS: List[str] = (
+    _t1.get("incident_terms", [])
+    + _t2.get("harms_mit", [])
+    + _t2.get("harms_cset", [])
+    + _t2.get("transparency", [])
+    + _t2.get("regulatory", [])
+)
+
+# Exclusion terms = aviation + financial
+EXCLUDE_TERMS: List[str] = (
+    _exclusions.get("aviation", {}).get("terms", [])
+    + _exclusions.get("financial", {}).get("terms", [])
+)
 
 # GDELT V2Tone threshold — only negative-toned articles.
 TONE_THRESHOLD = -3.0
+
+
+# ---------------------------------------------------------------------------
+# New structured API (for future modules)
+# ---------------------------------------------------------------------------
+
+def load_keywords() -> Dict[str, Any]:
+    """Return the full parsed keywords.yaml document."""
+    return _data.copy()
+
+
+def tier_1() -> Dict[str, List[str]]:
+    return {
+        "models_products": _t1.get("models_products", []),
+        "providers": _t1.get("providers", []),
+        "incident_terms": _t1.get("incident_terms", []),
+    }
+
+
+def tier_2() -> Dict[str, List[str]]:
+    return {
+        "models_products": _t2.get("models_products", []),
+        "providers": _t2.get("providers", []),
+        "harms_mit": _t2.get("harms_mit", []),
+        "harms_cset": _t2.get("harms_cset", []),
+        "transparency": _t2.get("transparency", []),
+        "regulatory": _t2.get("regulatory", []),
+    }
+
+
+def tier_3() -> List[str]:
+    t3 = _tiers.get("tier_3", {})
+    return t3.get("general_terms", [])
+
+
+# ---------------------------------------------------------------------------
+# Helpers (backward-compatible)
+# ---------------------------------------------------------------------------
 
 
 def alternation(words: list[str]) -> str:
@@ -48,6 +118,3 @@ def compile_patterns() -> tuple[re.Pattern, re.Pattern, re.Pattern]:
     inc_re = re.compile(alternation(INCIDENT_KEYWORDS))
     excl_re = re.compile(alternation(EXCLUDE_TERMS))
     return ai_re, inc_re, excl_re
-
-
-
